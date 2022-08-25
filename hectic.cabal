@@ -37,6 +37,7 @@ test-suite spec
     main-is: Spec.hs
     other-modules:
         DataSpec
+      , ScheduleSpec
     hs-source-dirs: tests
     ghc-options: -Wall
     build-depends:

@@ -1,15 +1,26 @@
 module Data where
 
-import Text.Printf
+import           Text.Printf
 
-data Month = January | February | March | April | May | June | July | August | Septemper | October | November | December
-  deriving (Show, Eq, Enum, Ord, Bounded)
+data Month = January | February | March | April | May | June | July | August | Septemper | October | November | December deriving
+    ( Bounded
+    , Enum
+    , Eq
+    , Ord
+    , Show
+    )
 
-data Weekday = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday
-  deriving (Show, Eq, Enum, Ord, Bounded)
+data Weekday = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday deriving
+    ( Bounded
+    , Enum
+    , Eq
+    , Ord
+    , Show
+    )
 
 
-data DailyHourMinute = DailyHourMinute Weekday Int Int
+data DailyHourMinute
+  = DailyHourMinute Weekday Int Int
   deriving (Eq, Ord)
 
 succ' :: (Eq a, Enum a, Bounded a) => a -> a
@@ -41,11 +52,16 @@ data TimePoint
   = Absolute Int
   | Monthly Month
   | Daily DailyHourMinute
+  deriving (Show, Eq)
 
-data Schedule = Free | Busy TimePoint TimePoint | Series [Schedule]
+data Schedule
+  = Free
+  | Busy TimePoint TimePoint
+  | Series [Schedule]
+  deriving (Show, Eq)
 
 instance Semigroup Schedule where
-  Free <> Free = Free
+  Free <> s = s
   s    <> Free = s
   Busy (Absolute f1) (Absolute t1) <> Busy (Absolute f2) (Absolute t2)
     -- Non-overlapping
@@ -53,23 +69,24 @@ instance Semigroup Schedule where
     | t2 < f1 = Series [Busy (Absolute f2) (Absolute t2), Busy (Absolute f1) (Absolute t1)]
     -- Overlapping
     | otherwise = Busy (Absolute (min f1 f2)) (Absolute (max t1 t2))
-  Busy (Absolute f1) (Absolute t1) <> Busy _ _ = error "Invalid argument"
+  Busy (Absolute _) _ <> Busy _ _ = error "Invalid argument"
   Busy (Monthly f1) (Monthly t1) <> Busy (Monthly f2) (Monthly t2)
     -- Non-overlapping
     | t1 < f2 = Series [Busy (Monthly f1) (Monthly t1), Busy (Monthly f2) (Monthly t2)]
     | t2 < f1 = Series [Busy (Monthly f2) (Monthly t2), Busy (Monthly f1) (Monthly t1)]
     -- Overlapping
     | otherwise = Busy (Monthly (min f1 f2)) (Monthly (max t1 t2))
-  Busy (Monthly f1) (Monthly t1) <> Busy _ _ = error "Invalid argument"
+  Busy (Monthly _) _ <> Busy _ _ = error "Invalid argument"
   Busy (Daily f1) (Daily t1) <> Busy (Daily f2) (Daily t2)
     -- Non-overlapping
     | t1 < f2 = Series [Busy (Daily f1) (Daily t1), Busy (Daily f2) (Daily t2)]
     | t2 < f1 = Series [Busy (Daily f2) (Daily t2), Busy (Daily f1) (Daily t1)]
     -- Overlapping
     | otherwise = Busy (Daily (min f1 f2)) (Daily (max t1 t2))
-  Busy (Daily f1) (Daily t1) <> Busy _ _ = error "Invalid argument"
-  Series xs1 <> Series xs2 = Series (xs1 <> xs2)
+  Busy (Daily _) _ <> Busy _ _ = error "Invalid argument"
+  Series xs1 <> Series xs2 = Series $ xs1 <> xs2
   Series xs <> s = foldr (<>) s xs
+  s <> Series xs = foldr (<>) s xs
 
 
 instance Monoid Schedule where
@@ -79,11 +96,11 @@ instance Monoid Schedule where
 absolute :: Int -> TimePoint
 absolute = Absolute
 
-month :: Month -> TimePoint
-month = Monthly
+monthly :: Month -> TimePoint
+monthly = Monthly
 
-daily :: Weekday -> Int -> Int -> TimePoint
-daily weekday h m 
+weekly :: Weekday -> (Int, Int) -> TimePoint
+weekly weekday (h, m)
   | h >= 0 && h < 24 && m >= 0 && m < 60 = Daily (DailyHourMinute weekday h m)
   | otherwise = error "Invalid argument"
 
@@ -92,3 +109,11 @@ free = Free
 
 absoluteBusy :: Int -> Int -> Schedule
 absoluteBusy = undefined
+
+busyMonth :: Month -> Month -> Schedule
+busyMonth m1 m2 =
+  Busy (monthly m1) (monthly m2)
+
+busyDay :: Weekday -> (Int, Int) -> (Int, Int) -> Schedule
+busyDay w (h0, m0) (h1, m1) =
+  Busy (weekly w (h0, m0)) (weekly w (h1, m1))
