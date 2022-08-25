@@ -12,12 +12,30 @@ data Weekday = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Satur
 data DailyHourMinute = DailyHourMinute Weekday Int Int
   deriving (Eq, Ord)
 
+succ' :: (Eq a, Enum a, Bounded a) => a -> a
+succ' value
+  | value == maxBound = minBound
+  | otherwise = succ value
+
+pred' :: (Eq a, Enum a, Bounded  a) => a -> a
+pred' value
+  | value == minBound = maxBound
+  | otherwise = pred value
+
 instance Show DailyHourMinute where
   show (DailyHourMinute w h m) = printf "%s (%02d:%02d)" (show w) h m
 
 instance Bounded DailyHourMinute where
   minBound = DailyHourMinute Sunday 0 0
   maxBound = DailyHourMinute Saturday 23 59
+
+instance Enum DailyHourMinute where
+  toEnum int = DailyHourMinute (toEnum w) h m
+    where
+      (w, r) = int `divMod` (24 * 60)
+      (h, m) = r `divMod` 60
+
+  fromEnum (DailyHourMinute w h m) = (fromEnum w * 24 * 60) + h * 60 + m
 
 data TimePoint
   = Absolute Int
