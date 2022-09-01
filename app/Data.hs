@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Data where
 
 import           Text.Printf
@@ -28,7 +29,7 @@ succ' value
   | value == maxBound = minBound
   | otherwise = succ value
 
-pred' :: (Eq a, Enum a, Bounded  a) => a -> a
+pred' :: (Eq a, Enum a, Bounded a) => a -> a
 pred' value
   | value == minBound = maxBound
   | otherwise = pred value
@@ -49,27 +50,35 @@ instance Enum DailyHourMinute where
   fromEnum (DailyHourMinute w h m) = (fromEnum w * 24 * 60) + h * 60 + m
 
 data TimePoint
-  = Absolute Int
-  | Monthly Month
+  = Monthly Month
   | Daily DailyHourMinute
-  deriving (Show, Eq)
+  deriving (Eq, Show)
+-- | Repeated TimePoint
 
 data Schedule
   = Free
+  | Open TimePoint TimePoint
   | Busy TimePoint TimePoint
   | Series [Schedule]
-  deriving (Show, Eq)
+  deriving (Eq, Show)
 
 instance Semigroup Schedule where
   Free <> s = s
   s    <> Free = s
-  Busy (Absolute f1) (Absolute t1) <> Busy (Absolute f2) (Absolute t2)
+  Open (Monthly f1) (Monthly t1) <> Open (Monthly f2) (Monthly t2)
     -- Non-overlapping
-    | t1 < f2 = Series [Busy (Absolute f1) (Absolute t1), Busy (Absolute f2) (Absolute t2)]
-    | t2 < f1 = Series [Busy (Absolute f2) (Absolute t2), Busy (Absolute f1) (Absolute t1)]
+    | t1 < f2 = Series [Open (Monthly f1) (Monthly t1), Open (Monthly f2) (Monthly t2)]
+    | t2 < f1 = Series [Open (Monthly f2) (Monthly t2), Open (Monthly f1) (Monthly t1)]
     -- Overlapping
-    | otherwise = Busy (Absolute (min f1 f2)) (Absolute (max t1 t2))
-  Busy (Absolute _) _ <> Busy _ _ = error "Invalid argument"
+    | otherwise = Open (Monthly (min f1 f2)) (Monthly (max t1 t2))
+  Open (Monthly _) _ <> Open _ _ = error "Invalid argument"
+  Open (Daily f1) (Daily t1) <> Open (Daily f2) (Daily t2)
+    -- Non-overlapping
+    | t1 < f2 = Series [Open (Daily f1) (Daily t1), Open (Daily f2) (Daily t2)]
+    | t2 < f1 = Series [Open (Daily f2) (Daily t2), Open (Daily f1) (Daily t1)]
+    -- Overlapping
+    | otherwise = Open (Daily (min f1 f2)) (Daily (max t1 t2))
+  Open (Daily _) _ <> Open _ _ = error "Invalid argument"
   Busy (Monthly f1) (Monthly t1) <> Busy (Monthly f2) (Monthly t2)
     -- Non-overlapping
     | t1 < f2 = Series [Busy (Monthly f1) (Monthly t1), Busy (Monthly f2) (Monthly t2)]
@@ -84,6 +93,50 @@ instance Semigroup Schedule where
     -- Overlapping
     | otherwise = Busy (Daily (min f1 f2)) (Daily (max t1 t2))
   Busy (Daily _) _ <> Busy _ _ = error "Invalid argument"
+  Open (Monthly fo) (Monthly to) <> Busy (Monthly fb) (Monthly tb)
+    | fo < fb && to > tb = Series [ Open (Monthly fo) (Monthly $ pred' fb)
+                                  , Busy (Monthly fb) (Monthly tb)
+                                  , Open (Monthly $ succ' tb) (Monthly to)
+                                  ]
+    | fo == fb && to > tb = Series [ Busy (Monthly fb) (Monthly tb)
+                                  , Open (Monthly $ succ' tb) (Monthly to)
+                                  ]
+    | fo < fb && to == tb = Series [ Open (Monthly fo) (Monthly $ pred' fb)
+                                  , Busy (Monthly fb) (Monthly tb)
+                                  ]
+    | fo == fb && to == tb = Busy (Monthly fb) (Monthly tb)
+    | fo == tb = Series [ Busy (Monthly fo) (Monthly tb)
+                        , Open (Monthly $ succ' tb) (Monthly to)
+                        ]
+    | to == fb = Series [ Open (Monthly fo) (Monthly $ pred' fb)
+                        , Busy (Monthly fb) (Monthly tb)
+                        ]
+    -- Non-overlapping
+    | to < fb = Series [Open (Monthly fo) (Monthly to), Busy (Monthly fb) (Monthly tb)]
+    | tb < fo = Series [Busy (Monthly fb) (Monthly tb), Open (Monthly fo) (Monthly to)]
+  Open (Daily fo) (Daily to) <> Busy (Daily fb) (Daily tb)
+    | fo < fb && to > tb = Series [ Open (Daily fo) (Daily $ pred' fb)
+                                  , Busy (Daily fb) (Daily tb)
+                                  , Open (Daily $ succ' tb) (Daily to)
+                                  ]
+    | fo == fb && to > tb = Series [ Busy (Daily fb) (Daily tb)
+                                  , Open (Daily $ succ' tb) (Daily to)
+                                  ]
+    | fo < fb && to == tb = Series [ Open (Daily fo) (Daily $ pred' fb)
+                                  , Busy (Daily fb) (Daily tb)
+                                  ]
+    | fo == fb && to == tb = Busy (Daily fb) (Daily tb)
+    | fo == tb = Series [ Busy (Daily fo) (Daily tb)
+                        , Open (Daily $ succ' tb) (Daily to)
+                        ]
+    | to == fb = Series [ Open (Daily fo) (Daily $ pred' fb)
+                        , Busy (Daily fb) (Daily tb)
+                        ]
+    -- Non-overlapping
+    | to < fb = Series [Open (Daily fo) (Daily to), Busy (Daily fb) (Daily tb)]
+    | tb < fo = Series [Busy (Daily fb) (Daily tb), Open (Daily fo) (Daily to)]
+  
+  Busy fb tb <> Open fo to = Open fo to <> Busy fb tb
   Series xs1 <> Series xs2 = Series $ xs1 <> xs2
   Series xs <> s = foldr (<>) s xs
   s <> Series xs = foldr (<>) s xs
@@ -92,9 +145,6 @@ instance Semigroup Schedule where
 instance Monoid Schedule where
   mempty = Free
   mappend = (<>)
-
-absolute :: Int -> TimePoint
-absolute = Absolute
 
 monthly :: Month -> TimePoint
 monthly = Monthly
@@ -107,9 +157,6 @@ weekly weekday (h, m)
 free :: Schedule
 free = Free
 
-absoluteBusy :: Int -> Int -> Schedule
-absoluteBusy = undefined
-
 busyMonth :: Month -> Month -> Schedule
 busyMonth m1 m2 =
   Busy (monthly m1) (monthly m2)
@@ -117,3 +164,11 @@ busyMonth m1 m2 =
 busyDay :: Weekday -> (Int, Int) -> (Int, Int) -> Schedule
 busyDay w (h0, m0) (h1, m1) =
   Busy (weekly w (h0, m0)) (weekly w (h1, m1))
+
+openMonth :: Month -> Month -> Schedule
+openMonth m1 m2 =
+  Open (monthly m1) (monthly m2)
+
+openDay :: Weekday -> (Int, Int) -> (Int, Int) -> Schedule
+openDay w (h0, m0) (h1, m1) =
+  Open (weekly w (h0, m0)) (weekly w (h1, m1))
