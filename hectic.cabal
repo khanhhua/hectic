@@ -21,6 +21,19 @@ maintainer:         giakhanh2487@gmail.com
 -- category:
 extra-source-files: CHANGELOG.md
 
+executable hectic-app
+    -- Modules included in this executable, other than Main.
+    main-is:  Main.hs
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:
+        base ^>=4.14.3.0
+      , hectic
+    ghc-options: -Wall
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
 library
     -- Modules included in this executable, other than Main.
     exposed-modules:  Data
@@ -29,7 +42,7 @@ library
     -- other-extensions:
     build-depends:    base ^>=4.14.3.0
     ghc-options: -Wall
-    hs-source-dirs:   app
+    hs-source-dirs:   lib
     default-language: Haskell2010
 
 test-suite spec

@@ -3,21 +3,30 @@ module Data where
 
 import           Text.Printf
 
-data Month = January | February | March | April | May | June | July | August | Septemper | October | November | December deriving
-    ( Bounded
-    , Enum
-    , Eq
-    , Ord
-    , Show
-    )
+data Month
+  = January
+  | February
+  | March
+  | April
+  | May
+  | June
+  | July
+  | August
+  | Septemper
+  | October
+  | November
+  | December
+  deriving (Bounded, Enum, Eq, Ord, Show)
 
-data Weekday = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday deriving
-    ( Bounded
-    , Enum
-    , Eq
-    , Ord
-    , Show
-    )
+data Weekday
+  = Sunday
+  | Monday
+  | Tuesday
+  | Wednesday
+  | Thursday
+  | Friday
+  | Saturday
+  deriving (Bounded, Enum, Eq, Ord, Show)
 
 
 data DailyHourMinute
@@ -135,7 +144,7 @@ instance Semigroup Schedule where
     -- Non-overlapping
     | to < fb = Series [Open (Daily fo) (Daily to), Busy (Daily fb) (Daily tb)]
     | tb < fo = Series [Busy (Daily fb) (Daily tb), Open (Daily fo) (Daily to)]
-  
+
   Busy fb tb <> Open fo to = Open fo to <> Busy fb tb
   Series xs1 <> Series xs2 = Series $ xs1 <> xs2
   Series xs <> s = foldr (<>) s xs
