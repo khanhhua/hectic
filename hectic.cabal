@@ -36,11 +36,14 @@ executable hectic-app
 
 library
     -- Modules included in this executable, other than Main.
-    exposed-modules:  Data
-
+    exposed-modules:
+        Data
+      , Query
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.14.3.0
+    build-depends:
+        base ^>=4.14.3.0
+      , time ^>=1.9.2
     ghc-options: -Wall
     hs-source-dirs:   lib
     default-language: Haskell2010
@@ -51,6 +54,7 @@ test-suite spec
     other-modules:
         DataSpec
       , ScheduleSpec
+      , QuerySpec
     hs-source-dirs: tests
     ghc-options: -Wall
     build-depends:
